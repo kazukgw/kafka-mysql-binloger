@@ -49,7 +49,7 @@ func (pro *BinlogProducer) SendMessage(
 		return nil, 0, 0, nil
 	}
 	ev := NewBinlogEvent(ev)
-	if ok := pro.EventFilter.Filtering(ev); !ok {
+	if ok := pro.EventFilter.Filter(ev); !ok {
 		return nil, 0, 0, nil
 	}
 	dat, err := json.Marshal(ev)
@@ -105,25 +105,15 @@ func (pro *BinlogProducer) Start() error {
 	return nil
 }
 
-type EventFilter interface {
-	Filtering(*BinlogEvent) bool
-}
+type EventFilter func(*BinlogEvent) bool
 
-type TopicProvider interface {
-	Provide(*BinlogEvent) string
-}
+type TopicProvider func(*BinlogEvent) string
 
-type KeyProvider interface {
-	Provide(*BinlogEvent) string
-}
+type KeyProvider func(*BinlogEvent) string
 
-type ResultHandler interface {
-	Handle(*BinlogEvent, int, uint32)
-}
+type ResultHandler func(*BinlogEvent, int, uint32)
 
-type ErrorHandler interface {
-	Handle(error) error
-}
+type ErrorHandler func(error) error
 
 type ErrGetEvent struct {
 	Inner error
