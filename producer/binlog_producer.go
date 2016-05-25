@@ -2,6 +2,7 @@ package producer
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/Shopify/sarama"
@@ -25,44 +26,47 @@ type Config struct {
 
 type BinlogProducer struct {
 	*Config
-	*sarama.SyncProducer
+	sarama.SyncProducer
+	EventFilter
 	TopicProvider
 	KeyProvider
-	ResultHander
-	ErrorHander
+	ResultHandler
+	ErrorHandler
 	*replication.BinlogSyncer
 }
 
-func NewBinlogProducer(conf *Config, syncProducer *sarama.SyncProducer) *BinlogProducer {
+func NewBinlogProducer(conf *Config, syncProducer sarama.SyncProducer) *BinlogProducer {
 	pro := &BinlogProducer{}
+	pro.BinlogSyncer = replication.NewBinlogSyncer(100, "mysql")
+	pro.SyncProducer = syncProducer
 	pro.Config = conf
-	pro.initProducer()
-	pro.InitBinlogSyncer()
 	return pro
 }
 
 func (pro *BinlogProducer) SendMessage(
 	ev *replication.BinlogEvent,
-) (*EventWrapper, int32, int64, error) {
+) (*BinlogEvent, int32, int64, error) {
 	_, ok := ev.Event.(*replication.RowsEvent)
 	if !ok {
 		return nil, 0, 0, nil
 	}
-	ev := NewBinlogEvent(ev)
-	if ok := pro.EventFilter.Filtering(ev); !ok {
-		return nil, 0, 0, nil
+	binev := NewBinlogEvent(ev)
+	if pro.EventFilter != nil {
+		if ok := pro.EventFilter.Filtering(binev); !ok {
+			return nil, 0, 0, nil
+		}
 	}
-	dat, err := json.Marshal(ev)
+	dat, err := json.Marshal(binev)
 	if err != nil {
 		return nil, 0, 0, errors.Trace(err)
 	}
 	msg := &sarama.ProducerMessage{
-		Topic: pro.TopicProvider.Provide(ev),
-		Key:   sarama.StringEncoder(pro.KeyProvier.Provide(ev)),
+		Topic: pro.TopicProvider.Provide(binev),
+		Key:   sarama.StringEncoder(pro.KeyProvider.Provide(binev)),
 		Value: sarama.ByteEncoder(dat),
 	}
-	partition, offset, err := pro.SendMessage(msg)
-	return ev, partition, offset, err
+	partition, offset, err := pro.SyncProducer.SendMessage(msg)
+	return binev, partition, offset, err
 }
 
 func (pro *BinlogProducer) Start() error {
@@ -87,6 +91,7 @@ func (pro *BinlogProducer) Start() error {
 
 	for {
 		ev, err := streamer.GetEvent()
+		log.Println("==> get event")
 		if err != nil {
 			if err := pro.ErrorHandler.Handle(newErrGetEvent(err)); err != nil {
 				break
@@ -118,7 +123,7 @@ type KeyProvider interface {
 }
 
 type ResultHandler interface {
-	Handle(*BinlogEvent, int, uint32)
+	Handle(*BinlogEvent, int32, int64)
 }
 
 type ErrorHandler interface {
@@ -130,10 +135,10 @@ type ErrGetEvent struct {
 }
 
 func (err ErrGetEvent) Error() string {
-	return fmt.Printf("faild to get event: %#v", err.Inner)
+	return fmt.Sprintf("faild to get event: %#v", err.Inner)
 }
 
-func newErrGetEvent(err error) ErrGetEvent {
+func newErrGetEvent(err error) error {
 	return errors.Trace(ErrGetEvent{err})
 }
 
@@ -142,9 +147,9 @@ type ErrSendMessage struct {
 }
 
 func (err ErrSendMessage) Error() string {
-	return fmt.Printf("faild to send message: %#v", err.Inner)
+	return fmt.Sprintf("faild to send message: %#v", err.Inner)
 }
 
-func newErrSendMessage(err error) ErrGetEvent {
+func newErrSendMessage(err error) error {
 	return errors.Trace(ErrSendMessage{err})
 }

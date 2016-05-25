@@ -1,0 +1,89 @@
+version: '2'
+services: 
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    expose:
+      - "2181"
+
+  kafka:
+    build:
+      context: .
+      args:
+        HTTP_PROXY: http://10.20.100.20:3128/
+    ports:
+      - "9092:9092"
+    expose:
+      - "9092"
+    links:
+      - zookeeper:zk
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: 172.18.0.1
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # KAFKA_CREATE_TOPICS: "test:1:1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # command: tail -f /dev/null
+
+  mysql:
+    image: mysql
+    ports:
+      - "13306:3306"
+    expose:
+      - "3306"
+    volumes:
+      - ./mysql/conf.d:/etc/mysql/conf.d
+      - ./mysql/init.d:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_USER: app
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: appdb
+
+  mysqlfollower:
+    image: mysql
+    ports:
+      - "13307:3306"
+    expose:
+      - "3306"
+    volumes:
+      - ./mysql_follower/conf.d:/etc/mysql/conf.d
+      - ./mysql_follower/init.d:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_USER: app
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: appdb
+
+  producer:
+    image: golang
+    links:
+      - kafka:kafka
+      - mysql:mysql
+    volumes:
+      - ./app/:/go/src/app
+    command: tail -f /dev/null
+    environment:
+      MYSQL_ADDR: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: appdb
+      BINLOGSYNCER_FILE: mysql-bin.000001
+      BINLOGSYNCER_OFFSET: 0
+      KAFKA_BROKER_ADDR: kafka:9092
+
+  consumer:
+    image: golang
+    links:
+      - kafka:kafka
+      - mysql:mysql
+      - mysqlfollower:follower
+    volumes:
+      - ./app/:/go/src/app
+    command: tail -f /dev/null
+

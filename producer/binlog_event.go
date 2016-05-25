@@ -1,21 +1,19 @@
 package producer
 
 import (
-	"encoding/json"
-
 	"github.com/satori/go.uuid"
 	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go-mysql/replication"
 )
 
 type BinlogEvent struct {
-	Header *EventHeader
+	Header *BinlogEventHeader
 	Event  interface{}
 }
 
 func NewBinlogEvent(binlogEv *replication.BinlogEvent) *BinlogEvent {
-	newEv := BinlogEvent{}
-	newEv.Header = NewBinlogEventHeader(ev.EventHeader)
+	newEv := &BinlogEvent{}
+	newEv.Header = NewBinlogEventHeader(binlogEv.Header)
 	switch ev := binlogEv.Event.(type) {
 	case *replication.FormatDescriptionEvent:
 		newEv.Event = WrapFormatDescriptionEvent(ev)
