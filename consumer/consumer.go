@@ -2,25 +2,43 @@ package consumer
 
 import (
 	"github.com/Shopify/sarama"
-	"github.com/kazukgw/kafka-mysql-binloger/producer"
 )
 
-type Mysql struct {
-	MysqlConfig
-	sarama.Consumer
+type BinlogConsumer interface {
 }
 
-type MysqlConfig struct {
-	Host     string
-	Port     uint16
-	User     string
-	Password string
+type BinlogConsumerMessage struct {
 }
 
-func (con Mysql) syncDBWithMsg(msg *sarama.ConsumerMessage) {
+type MessageHandler interface {
+	InsertRows(msg *BinlogConsumerMessage) error
+	UpdateRows(msg *BinlogConsumerMessage) error
+	DeleteRows(msg *BinlogConsumerMessage) error
+}
+
+// TODO: implement
+// logfile, logpostion からparition, offsetを取得する
+func DetectPartition(logfile string, positin uint16) (string, uint16) {
+
+}
+
+type DefaultConsumer struct {
+	*Config
+	*sarama.PartitionConsumer
+	MessageHandler
+}
+
+func NewDefaultConsumer(conf Config, handler MessageHandler) *BinlogConsumer {
+
+}
+
+func (con *DefaultConsumer) Consume(msg *sarama.ConsumerMessage) {
 	event := &producer.BinlogEvent{}
 	if err := json.Unmarshal(msg.Value, event); err != nil {
 		panic(err.Error())
+	}
+	switch event.Header.EventType {
+	// case INSERT_ROWS
 	}
 	ev := event.Event.(map[string]interface{})
 	tmap := ev["Table"].(map[string]interface{})
@@ -60,20 +78,4 @@ type QueryValues struct {
 	}
 	Rows  []interface{}
 	Table string
-}
-
-func (con Mysql) insertRows(
-	tableMap map[string]interface{},
-	rows []interface{},
-	tableDefMap map[string]string,
-) error {
-	sqlstr := fmt.Sprintf("INSERT INTO %s ()")
-}
-
-func (con Mysql) updateRows(rows []interface{}) error {
-
-}
-
-func (con Mysql) deleteRows(rows []interface{}) error {
-
 }
