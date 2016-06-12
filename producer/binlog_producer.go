@@ -3,7 +3,7 @@ package producer
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	// "log"
 
 	"github.com/Shopify/sarama"
 	"github.com/juju/errors"
@@ -91,7 +91,6 @@ func (pro *BinlogProducer) Start() error {
 
 	for {
 		ev, err := streamer.GetEvent()
-		log.Println("==> get event")
 		if err != nil {
 			if err := pro.ErrorHandler.Handle(newErrGetEvent(err)); err != nil {
 				break

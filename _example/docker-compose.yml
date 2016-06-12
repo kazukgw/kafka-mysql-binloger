@@ -1,5 +1,5 @@
 version: '2'
-services: 
+services:
   zookeeper:
     image: wurstmeister/zookeeper
     ports:
@@ -76,6 +76,8 @@ services:
       BINLOGSYNCER_FILE: mysql-bin.000001
       BINLOGSYNCER_OFFSET: 0
       KAFKA_BROKER_ADDR: kafka:9092
+      KAFKA_BINLOG_TOPIC: mysql-binlog-events
+      KAFKA_BINLOG_KEY: sync
 
   consumer:
     image: golang
@@ -86,4 +88,14 @@ services:
     volumes:
       - ./app/:/go/src/app
     command: tail -f /dev/null
+    environment:
+      FOLLOWER_MYSQL_ADDR: mysql
+      FOLLOWER_MYSQL_PORT: 3306
+      FOLLOWER_MYSQL_USER: root
+      FOLLOWER_MYSQL_PASSWORD: password
+      KAFKA_BROKER_ADDR: kafka:9092
+      FOLLOWER_MYSQL_DATABASE: appdb
+      KAFKA_BINLOG_TOPIC: mysql-binlog-events
+      KAFKA_BINLOG_PARTITION: 0
+
 

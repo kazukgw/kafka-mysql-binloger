@@ -16,6 +16,7 @@ type MySQLConfig struct {
 	Port     uint16
 	User     string
 	Password string
+	Tables   []Table
 }
 
 func (con Mysql) InsertRows(msg *BinlogConsumerMessage) error {

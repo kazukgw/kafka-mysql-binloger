@@ -52,13 +52,13 @@ func main() {
 type topicProvider struct{}
 
 func (p topicProvider) Provide(ev *producer.BinlogEvent) string {
-	return "mysql-binlog-test"
+	return os.Getenv("KAFKA_BINLOG_TOPIC")
 }
 
 type keyProvider struct{}
 
 func (p keyProvider) Provide(ev *producer.BinlogEvent) string {
-	return "a-key"
+	return os.Getenv("KAFKA_BINLOG_KEY")
 }
 
 type resultHandler struct{}
