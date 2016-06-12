@@ -218,10 +218,11 @@ func (handler *RowsEventHandler) HandleWriteRowsEvent() {
 	mappedTable := handler.MappedTable(handler.RowsEvent.TableName)
 	cols := handler.MappedColumns(handler.RowsEvent.TableName)
 
+	log.Printf("==> insert rows: %#v", handler.RowsEvent.Rows)
 	builder := sq.Insert(mappedTable).Columns(cols...)
 	for _, row := range handler.RowsEvent.Rows {
 		r, _ := row.([]interface{})
-		builder.Values(r...)
+		builder = builder.Values(r...)
 	}
 	sqlstr, args, err := builder.ToSql()
 	if err != nil {
@@ -239,6 +240,7 @@ func (handler *RowsEventHandler) HandleUpdateRowsEvent() {
 	cols := handler.MappedColumns(handler.RowsEvent.TableName)
 	builder := sq.Update(mappedTable)
 
+	log.Printf("==> update rows: %#v", handler.RowsEvent.Rows)
 	for i := 0; i < len(handler.RowsEvent.Rows); i += 2 {
 		b := builder
 		identification, _ := handler.RowsEvent.Rows[i].([]interface{})
@@ -250,14 +252,17 @@ func (handler *RowsEventHandler) HandleUpdateRowsEvent() {
 		}
 		eq := sq.Eq{}
 		for colIdx, v := range identification {
-			eq[cols[colIdx]] = v
+			if v != nil {
+				log.Printf("==> update where: %#v, %#v", cols[colIdx], v)
+				eq[cols[colIdx]] = v
+			}
 		}
 		b = b.Where(eq)
 		sqlstr, args, err := b.ToSql()
 		if err != nil {
 			panic(err)
 		}
-		_, err = handler.MessageHandler.DB.Exec(sqlstr, args)
+		_, err = handler.MessageHandler.DB.Exec(sqlstr, args...)
 		if err != nil {
 			panic(err)
 		}
@@ -269,19 +274,22 @@ func (handler *RowsEventHandler) HandleDeleteRowsEvent() {
 	cols := handler.MappedColumns(handler.RowsEvent.TableName)
 	builder := sq.Delete(mappedTable)
 
+	log.Printf("==> delete rows: %#v", handler.RowsEvent.Rows)
 	for _, row := range handler.RowsEvent.Rows {
 		b := builder
 		identification, _ := row.([]interface{})
 		eq := sq.Eq{}
 		for colIdx, v := range identification {
-			eq[cols[colIdx]] = v
+			if v != nil {
+				eq[cols[colIdx]] = v
+			}
 		}
 		b = b.Where(eq)
 		sqlstr, args, err := b.ToSql()
 		if err != nil {
 			panic(err)
 		}
-		_, err = handler.MessageHandler.DB.Exec(sqlstr, args)
+		_, err = handler.MessageHandler.DB.Exec(sqlstr, args...)
 		if err != nil {
 			panic(err)
 		}

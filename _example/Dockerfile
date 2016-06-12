@@ -2,7 +2,7 @@ FROM anapsix/alpine-java
 
 MAINTAINER Wurstmeister
 
-ENV http_proxy $HTTP_PROXY
+# ENV http_proxy $HTTP_PROXY
 
 RUN apk add --update unzip wget curl docker jq coreutils
 
